@@ -20,6 +20,14 @@ func printUsage() {
 	fmt.Println("  -q <quality>  JPEG quality (1-100, default: 100)")
 }
 
+func normalizeFileName(fileName string) string {
+	if strings.HasSuffix(fileName, ".HEIC") {
+		return strings.TrimSuffix(path.Base(fileName), ".HEIC") + ".jpg"
+	}
+
+	return strings.TrimSuffix(path.Base(fileName), ".heic") + ".jpg"
+}
+
 func filterHeicFiles(inPath []string, verbose bool) ([]string, error) {
 	var heicFilePaths []string
 
@@ -75,9 +83,9 @@ func convert(inPath []string, outPath string, quality int, verbose bool) error {
 		var outputFilePath string
 
 		if outPath == "." {
-			outputFilePath = strings.TrimSuffix(path.Base(file), ".heic") + ".jpg"
+			outputFilePath = normalizeFileName(file)
 		} else {
-			outputFilePath = path.Clean(outPath) + string(os.PathSeparator) + strings.TrimSuffix(path.Base(file), ".heic") + ".jpg"
+			outputFilePath = path.Clean(outPath) + string(os.PathSeparator) + normalizeFileName(file)
 		}
 
 		reader, err := os.Open(file)
