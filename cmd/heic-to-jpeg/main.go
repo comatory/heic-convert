@@ -6,7 +6,9 @@ import (
 	"image/jpeg"
 	"os"
 	"path"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/gen2brain/heic"
 )
@@ -36,7 +38,7 @@ func filterHeicFiles(inPath []string, verbose bool) ([]string, error) {
 
 		if err != nil {
 			if verbose {
-				fmt.Fprintf(os.Stderr, "Error accessing path %s: %v\n", maybeHeic, err)
+				fmt.Fprintf(os.Stderr, "accessing path %s: %v\n", maybeHeic, err)
 			}
 			return nil, err
 		}
@@ -61,78 +63,56 @@ func filterHeicFiles(inPath []string, verbose bool) ([]string, error) {
 	return heicFilePaths, nil
 }
 
-func convert(inPath []string, outPath string, quality int, verbose bool) error {
-	files, err := filterHeicFiles(inPath, verbose)
+func convert(filePath string, outPath string, quality int, verbose bool, errChan chan error) {
+	if verbose {
+		fmt.Printf("Converting file: %s\n", filePath)
+	}
+
+	var outputFilePath string
+
+	if outPath == "." {
+		outputFilePath = normalizeFileName(filePath)
+	} else {
+		outputFilePath = path.Clean(outPath) + string(os.PathSeparator) + normalizeFileName(filePath)
+	}
+
+	reader, err := os.Open(filePath)
+	if err != nil {
+		errChan <- fmt.Errorf("opening file %s: %w", filePath, err)
+		return
+	}
+	defer func() { _ = reader.Close() }()
+
+	img, err := heic.Decode(reader)
 
 	if err != nil {
-		return err
+		errChan <- fmt.Errorf("decoding HEIC image %s: %w", filePath, err)
+		return
 	}
 
-	if len(files) == 0 {
-		if verbose {
-			fmt.Println("No .heic files found to convert.")
-		}
-		return nil
+	outFile, err := os.Create(outputFilePath)
+
+	if err != nil {
+		errChan <- fmt.Errorf("creating output file %s: %w", outputFilePath, err)
+		return
 	}
 
-	for _, file := range files {
-		if verbose {
-			fmt.Printf("Converting file: %s\n", file)
-		}
+	defer func() { _ = outFile.Close() }()
 
-		var outputFilePath string
-
-		if outPath == "." {
-			outputFilePath = normalizeFileName(file)
-		} else {
-			outputFilePath = path.Clean(outPath) + string(os.PathSeparator) + normalizeFileName(file)
-		}
-
-		reader, err := os.Open(file)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error opening file %s: %v\n", file, err)
-			continue
-		}
-		defer func() { _ = reader.Close() }()
-
-		img, err := heic.Decode(reader)
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error decoding HEIC image %s: %v\n", file, err)
-			continue
-		}
-
-		outFile, err := os.Create(outputFilePath)
-
-		if err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "Error creating output file %s: %v\n", outputFilePath, err)
-			}
-			continue
-		}
-
-		if verbose {
-			fmt.Printf("Writing to output file: %s with quality %d\n", outputFilePath, quality)
-		}
-
-		err = jpeg.Encode(outFile, img, &jpeg.Options{Quality: quality})
-
-		if err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "Error encoding JPEG image %s: %v\n", outputFilePath, err)
-			}
-			_ = outFile.Close()
-			continue
-		}
-
-		_ = outFile.Close()
-
-		if verbose {
-			fmt.Printf("Successfully converted %s to %s\n", file, outputFilePath)
-		}
+	if verbose {
+		fmt.Printf("Writing to output file: %s with quality %d\n", outputFilePath, quality)
 	}
 
-	return nil
+	err = jpeg.Encode(outFile, img, &jpeg.Options{Quality: quality})
+
+	if err != nil {
+		errChan <- fmt.Errorf("encoding JPEG image %s: %w", outputFilePath, err)
+		return
+	}
+
+	if verbose {
+		fmt.Printf("Successfully converted %s to %s\n", filePath, outputFilePath)
+	}
 }
 
 func ensureOutputDir(path string, verbose bool) error {
@@ -162,7 +142,7 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() == 0 && !help {
-		fmt.Fprintln(os.Stderr, "Error: No input files or directory specified.")
+		fmt.Fprintln(os.Stderr, "No input files or directory specified.")
 		printUsage()
 		os.Exit(1)
 	}
@@ -174,7 +154,7 @@ func main() {
 
 	if len(outPath) > 0 && outPath != "." {
 		if err := ensureOutputDir(outPath, verbose); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+			fmt.Fprintf(os.Stderr, "creating output directory: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -183,11 +163,45 @@ func main() {
 		}
 	}
 
-	positionalArgs := flag.Args()
+	files, err := filterHeicFiles(flag.Args(), verbose)
 
-	err := convert(positionalArgs, outPath, quality, verbose)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error during conversion: %v\n", err)
+		fmt.Fprintf(os.Stderr, "filtering .heic files: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(files) == 0 {
+		if verbose {
+			fmt.Println("No .heic files found to convert.")
+		}
+		os.Exit(0)
+	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(files))
+	var errorCount int
+	semaphore := make(chan struct{}, runtime.NumCPU()*2)
+
+	for _, file := range files {
+		wg.Add(1)
+		go func(fileToConvert string) {
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			defer wg.Done()
+			convert(fileToConvert, outPath, quality, verbose, errChan)
+		}(file)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		errorCount++
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+	}
+
+	if errorCount > 0 {
+		fmt.Fprintf(os.Stderr, "Completed with %d errors.\n", errorCount)
 		os.Exit(1)
 	}
 }
