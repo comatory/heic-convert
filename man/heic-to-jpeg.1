@@ -1,0 +1,66 @@
+.TH HEIC-TO-JPEG 1 "January 2026" "0.1.1" "User Commands"
+.SH NAME
+heic-to-jpeg \- convert HEIC images to JPEG format
+.SH SYNOPSIS
+.B heic-to-jpeg
+[\fIOPTIONS\fR] <input files or directory>
+.SH DESCRIPTION
+.B heic-to-jpeg
+converts HEIC (High Efficiency Image Container) images to JPEG format.
+It supports batch conversion and parallel processing for efficient handling
+of multiple files.
+.SH OPTIONS
+.TP
+.B \-h
+Display help message and exit.
+.TP
+.B \-o \fI<path>\fR
+Specify output directory for converted JPEG files.
+Default: current directory.
+.TP
+.B \-v
+Enable verbose logging to show detailed conversion progress.
+.TP
+.B \-q \fI<quality>\fR
+Set JPEG quality level (1-100).
+Higher values produce better quality but larger files.
+Default: 100.
+.SH EXAMPLES
+Convert a single HEIC file to JPEG in the current directory:
+.PP
+.nf
+.RS
+heic-to-jpeg photo.heic
+.RE
+.fi
+.PP
+Convert multiple HEIC files with custom quality:
+.PP
+.nf
+.RS
+heic-to-jpeg -q 85 photo1.heic photo2.HEIC
+.RE
+.fi
+.PP
+Convert with verbose output to specific directory:
+.PP
+.nf
+.RS
+heic-to-jpeg -v -o ./output photo.heic
+.RE
+.fi
+.SH EXIT STATUS
+.TP
+.B 0
+All conversions completed successfully.
+.TP
+.B 1
+One or more conversions failed.
+.SH AUTHOR
+Written by comatory.
+.SH REPORTING BUGS
+Report bugs at: <https://github.com/comatory/heic-convert/issues>
+.SH COPYRIGHT
+MIT License
+.SH SEE ALSO
+Full documentation at: <https://github.com/comatory/heic-convert>
