@@ -2,7 +2,17 @@
 
 CLI tool to convert HEIC images to JPEG format.
 
-## Build
+## Installation
+
+### Homebrew (macOS)
+
+```bash
+brew install comatory/tap/comatory-heic-convert
+```
+
+The binary will be available as `heic-to-jpeg`. See man page with `man heic-to-jpeg`.
+
+### Build from source
 
 ```bash
 just build
@@ -11,10 +21,8 @@ just build
 ## Usage
 
 ```bash
-./bin/heic-to-jpeg [options] <input files>
+heic-to-jpeg [options] <input files>
 ```
-
-It is recommended to copy the binary to `/usr/local/bin` for easier access.
 
 ### Options
 
@@ -39,5 +47,13 @@ heic-to-jpeg -o /path/to/output -q 80 *.heic
 
 ## Automator workflow (macOS)
 
-Import the provided `HEIC to JPG.workflow` into Automator to create a quick action for converting HEIC images directly from Finder.
-The workflow assumes that the binary is in its default location (`/usr/local/bin/heic-to-jpeg`).
+For Finder right-click integration, install the Quick Action workflow:
+
+**Via Homebrew:**
+After installing with brew, run:
+```bash
+open "$(brew --prefix)/share/comatory-heic-convert/HEIC to JPG.workflow"
+```
+
+**Manual:**
+Double-click `HEIC to JPG.workflow` to install. The workflow uses the `heic-to-jpeg` binary from your PATH.
