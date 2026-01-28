@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build-and-lint:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +27,9 @@ jobs:
 
       - name: Run lint
         run: just lint
+
+      - name: Run tests
+        run: just test
 
       - name: Run build
         run: just build

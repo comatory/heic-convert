@@ -6,3 +6,6 @@ lint:
 
 format:
   go fmt ./...
+
+test:
+  go test -v ./...
