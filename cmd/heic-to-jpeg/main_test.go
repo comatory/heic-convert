@@ -244,7 +244,11 @@ func TestConvert(t *testing.T) {
 				t.Errorf("cannot open output file: %v", err)
 				return
 			}
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					t.Errorf("failed to close file: %v", err)
+				}
+			}()
 
 			_, err = jpeg.Decode(f)
 			if err != nil {
