@@ -61,7 +61,7 @@
 					<key>COMMAND_STRING</key>
 					<string>OUT_DIR="/tmp/$(date +%s%3N)";
 mkdir -p $OUT_DIR;
-/usr/local/bin/heic-to-jpeg -q 75 -o $OUT_DIR "$@";
+heic-to-jpeg -q 75 -o $OUT_DIR "$@";
 open $OUT_DIR;</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
